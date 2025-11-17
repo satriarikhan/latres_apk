@@ -34,13 +34,40 @@ class _TopAnimeListPageState extends State<TopAnimeListPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            // Menangani Error yang berasal dari ApiService
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off, size: 50, color: Colors.grey),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Gagal memuat data: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _topAnimeFuture = _apiService
+                              .fetchTopAnime(); // Coba muat ulang
+                        });
+                      },
+                      child: const Text('Coba Lagi'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No top anime found.'));
+            return const Center(child: Text('Tidak ada data anime ditemukan.'));
           }
-          
+
           final List<Anime> animeList = snapshot.data!;
-          
+
           // Menggunakan ListView (sesuai contoh tampilan)
           return ListView.builder(
             itemCount: animeList.length,
@@ -52,7 +79,8 @@ class _TopAnimeListPageState extends State<TopAnimeListPage> {
                   width: 50,
                   height: 70,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported),
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.image_not_supported),
                 ),
                 title: Text(anime.title),
                 subtitle: Text('Score: ${anime.score}'),

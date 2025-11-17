@@ -11,13 +11,24 @@ class ApiService {
       if (response.statusCode == 200) {
         // Data anime berada di bawah kunci 'data'
         final List<dynamic> animeData = response.data['data'];
+        
+        // Pastikan Anda memanggil map untuk mengonversi data ke model
         return animeData.map((json) => Anime.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load top anime: Status ${response.statusCode}');
+        // Melempar DioException jika status code non-200
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Failed to load top anime: Status ${response.statusCode}',
+        );
       }
+    } on DioException catch (e) {
+      // Menangani error dari Dio (timeout, network issues)
+      throw Exception('Network Error: ${e.message}');
     } catch (e) {
-      // Menangani error Dio (timeout, network issues, dll.)
-      throw Exception('Failed to fetch top anime: $e');
+      // Menangani error umum lainnya (misalnya, parsing JSON gagal)
+      throw Exception('Failed to process anime data: $e');
     }
   }
 }

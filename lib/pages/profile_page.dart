@@ -1,103 +1,114 @@
+// lib/pages/profile_page.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../services/shared_prefs_service.dart';
-import 'login_page.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/session_service.dart';
+import '../models/user_model.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String _username = 'Loading...';
-  
-  // Data statis untuk contoh (sesuai ketentuan soal)
-  final String _name = 'Gwejh (Contoh Nama)';
-  final String _nim = '123220000 (Contoh NIM)';
-  
+  final _nimCtl = TextEditingController();
+  final _session = SessionService();
+  String? loggedUser;
+  String? photoBase64;
+  UserModel? user;
+
   @override
   void initState() {
     super.initState();
-    _loadUsername();
+    _load();
   }
 
-  Future<void> _loadUsername() async {
-    final username = await SharedPrefsService.getLoggedInUsername();
+  Future<void> _load() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await auth.loadFromSession();
+    final prefsUser = await _session.getLoggedUser();
+    final nim = await _session.getNim();
+    final photo = await _session.getProfilePhoto();
     setState(() {
-      _username = username ?? 'N/A';
+      loggedUser = prefsUser;
+      _nimCtl.text = nim ?? '';
+      photoBase64 = photo;
+      user = auth.currentUser;
     });
   }
 
-  void _handleLogout(BuildContext context) async {
-    // Hapus session login
-    await SharedPrefsService.clearLoginSession();
-    
-    // Arahkan kembali ke halaman Login dan hapus semua rute sebelumnya
-    if (context.mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => LoginPage()),
-        (Route<dynamic> route) => false,
-      );
+  Future<void> _pick(bool camera) async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(source: camera ? ImageSource.camera : ImageSource.gallery, maxWidth: 800, maxHeight: 800);
+    if (x == null) return;
+    final bytes = await x.readAsBytes();
+    final b64 = base64Encode(bytes);
+    await _session.saveProfilePhoto(b64);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.currentUser != null) {
+      await auth.updateProfile(auth.currentUser!.username, photoBase64: b64);
     }
+    setState(() { photoBase64 = b64; });
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final username = auth.currentUser?.username ?? loggedUser ?? 'Guest';
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            const CircleAvatar(
-              radius: 60,
-              backgroundColor: Colors.grey,
-              child: Icon(Icons.person, size: 60, color: Colors.white), 
-              // Di sini tempat untuk fitur opsional: foto dari kamera
-            ),
-            const SizedBox(height: 20),
-            Text(
-              _name,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              _nim,
-              style: const TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(12),
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Logged in as: $_username', // Wajib ambil dari database/session
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontStyle: FontStyle.italic, color: Colors.deepPurple),
+          children: [
+            GestureDetector(
+              onTap: () {
+                showModalBottomSheet(context: context, builder: (_) {
+                  return SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(leading: const Icon(Icons.camera_alt), title: const Text('Take photo'), onTap: () { Navigator.pop(context); _pick(true); }),
+                        ListTile(leading: const Icon(Icons.photo), title: const Text('Choose from gallery'), onTap: () { Navigator.pop(context); _pick(false); }),
+                      ],
+                    ),
+                  );
+                });
+              },
+              child: CircleAvatar(
+                radius: 50,
+                backgroundImage: photoBase64 != null ? MemoryImage(base64Decode(photoBase64!)) : const AssetImage('assets/images/profile_placeholder.png') as ImageProvider,
               ),
             ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _handleLogout(context),
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                ),
-              ),
+            const SizedBox(height: 12),
+            Text('Username: $username'),
+            const SizedBox(height: 12),
+            TextField(controller: _nimCtl, decoration: const InputDecoration(labelText: 'NIM')),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                await _session.saveNim(_nimCtl.text.trim());
+                final auth = Provider.of<AuthProvider>(context, listen: false);
+                if (auth.currentUser != null) {
+                  await auth.updateProfile(auth.currentUser!.username, nim: _nimCtl.text.trim());
+                }
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved')));
+              },
+              child: const Text('Save NIM'),
+            ),
+            const Spacer(),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () async {
+                final auth = Provider.of<AuthProvider>(context, listen: false);
+                await auth.logout();
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              child: const Text('Logout'),
             ),
           ],
         ),

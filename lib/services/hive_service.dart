@@ -1,30 +1,40 @@
+// lib/services/hive_service.dart
 import 'package:hive_flutter/hive_flutter.dart';
-// import '../models/user_model.dart'; // Asumsikan Anda punya UserModel
+import '../models/user_model.dart';
 
 class HiveService {
-  static const String _userBoxName = 'userBox';
-  
-  // Inisialisasi Hive
-  static Future<void> init() async {
-    await Hive.initFlutter();
-    // Hive.registerAdapter(UserAdapter()); // Daftarkan adapter user
-    await Hive.openBox<Map<dynamic, dynamic>>(_userBoxName);
+  static Box get usersBox => Hive.box('users');
+  static Box get favoritesBox => Hive.box('favorites');
+
+  // Register user (username unique)
+  Future<bool> register(UserModel user) async {
+    final box = usersBox;
+    if (box.containsKey(user.username)) return false;
+    await box.put(user.username, user.toMap());
+    return true;
   }
 
-  // Menyimpan data user (Register)
-  Future<void> registerUser(String username, String password) async {
-    final box = Hive.box<Map<dynamic, dynamic>>(_userBoxName);
-    // Simpan data dalam bentuk Map
-    await box.put(username, {'username': username, 'password': password});
+  UserModel? getUser(String username) {
+    final box = usersBox;
+    final map = box.get(username);
+    if (map == null) return null;
+    return UserModel.fromMap(Map<dynamic, dynamic>.from(map));
   }
 
-  // Memverifikasi data user (Login)
-  Future<bool> verifyUser(String username, String password) async {
-    final box = Hive.box<Map<dynamic, dynamic>>(_userBoxName);
-    final userData = box.get(username);
-    if (userData != null && userData['password'] == password) {
-      return true; // Login berhasil
-    }
-    return false; // Login gagal
+  Future<void> saveUser(UserModel user) async {
+    final box = usersBox;
+    await box.put(user.username, user.toMap());
+  }
+
+  // favorites stored as list of malId ints
+  List<int> getFavorites() {
+    final box = favoritesBox;
+    final list = box.get('favorites_list', defaultValue: <int>[]);
+    return List<int>.from(list);
+  }
+
+  Future<void> saveFavorites(List<int> ids) async {
+    final box = favoritesBox;
+    await box.put('favorites_list', ids);
   }
 }

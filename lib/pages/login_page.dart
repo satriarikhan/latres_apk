@@ -1,99 +1,71 @@
+// lib/pages/login_page.dart
 import 'package:flutter/material.dart';
-import '../services/hive_service.dart';
-import '../services/shared_prefs_service.dart';
-import 'home_page.dart'; // Import MainNavigationScreen
-import 'register_page.dart'; // Import RegisterPage
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import 'register_page.dart';
+import 'home_page.dart';
 
-class LoginPage extends StatelessWidget {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final HiveService _hiveService = HiveService();
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
 
-  LoginPage({super.key});
-
-  void _handleLogin(BuildContext context) async {
-    final username = _usernameController.text;
-    final password = _passwordController.text;
-
-    if (username.isEmpty || password.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Username and password are required.')),
-        );
-      }
-      return;
-    }
-
-    final bool success = await _hiveService.verifyUser(username, password);
-
-    if (context.mounted) {
-      if (success) {
-        // Simpan sesi login
-        await SharedPrefsService.saveLoginSession(username);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome back, $username!')),
-        );
-        // Arahkan ke Halaman Utama (MainNavigationScreen)
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainNavigationScreen(initialIndex: 0)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid username or password.')),
-        );
-      }
-    }
-  }
+class _LoginPageState extends State<LoginPage> {
+  final _userCtl = TextEditingController();
+  final _passCtl = TextEditingController();
+  bool _loading = false;
+  String? _error;
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const Text(
-                'MyAnimeArchive',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.deepPurple),
-              ),
-              const SizedBox(height: 50),
-              TextField(
-                controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-              ),
-              const SizedBox(height: 40),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => _handleLogin(context),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  Text('Anime App', style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 30),
+                  TextField(
+                    controller: _userCtl,
+                    decoration: const InputDecoration(labelText: 'Username'),
                   ),
-                  child: const Text('Login'),
-                ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _passCtl,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 20),
+                  if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+                  ElevatedButton(
+                    onPressed: _loading ? null : () async {
+                      setState(() { _loading = true; _error = null; });
+                      final ok = await auth.login(_userCtl.text.trim(), _passCtl.text.trim());
+                      setState(() { _loading = false; });
+                      if (ok) {
+                        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+                      } else {
+                        setState(() { _error = 'Login failed: wrong credentials'; });
+                      }
+                    },
+                    child: _loading ? const CircularProgressIndicator() : const Text('Login'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RegisterPage()));
+                    },
+                    child: const Text('Register'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () {
-                  // Arahkan ke halaman Register
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => RegisterPage()),
-                  );
-                },
-                child: const Text('Belum punya akun? Register.', style: TextStyle(color: Colors.deepPurple)),
-              ),
-            ],
+            ),
           ),
         ),
       ),

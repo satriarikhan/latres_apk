@@ -1,18 +1,32 @@
-class User {
+// lib/models/user_model.dart
+class UserModel {
   final String username;
   final String password;
-  // Anda bisa menambahkan field lain seperti name, nim, dll.
+  String? nim;
+  String? photoBase64; // optional, can store base64 string
 
-  User({
+  UserModel({
     required this.username,
     required this.password,
+    this.nim,
+    this.photoBase64,
   });
 
-  // Metode toMap untuk menyimpan ke Hive/Map
   Map<String, dynamic> toMap() {
     return {
       'username': username,
       'password': password,
+      'nim': nim,
+      'photoBase64': photoBase64,
     };
+  }
+
+  factory UserModel.fromMap(Map<dynamic, dynamic> map) {
+    return UserModel(
+      username: map['username'] ?? '',
+      password: map['password'] ?? '',
+      nim: map['nim'],
+      photoBase64: map['photoBase64'],
+    );
   }
 }

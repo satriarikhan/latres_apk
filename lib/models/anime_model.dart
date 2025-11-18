@@ -1,9 +1,12 @@
+// lib/models/anime_model.dart
 class Anime {
   final int malId;
   final String title;
   final String imageUrl;
   final double score;
   final String synopsis;
+  final String status;
+  final String trailerUrl;
 
   Anime({
     required this.malId,
@@ -11,18 +14,20 @@ class Anime {
     required this.imageUrl,
     required this.score,
     required this.synopsis,
+    required this.status,
+    required this.trailerUrl,
   });
 
-  // Factory constructor untuk membuat objek Anime dari JSON
   factory Anime.fromJson(Map<String, dynamic> json) {
     return Anime(
-      malId: json['mal_id'] ?? 0,
-      title: json['title'] ?? 'No Title',
-      // Mengambil URL dari 'images' -> 'jpg'
-      imageUrl: json['images']?['jpg']?['image_url'] ?? '',
-      // Score bisa berupa int atau double, pastikan diubah ke double
-      score: (json['score'] as num?)?.toDouble() ?? 0.0,
-      synopsis: json['synopsis'] ?? 'No synopsis available.',
+      malId: (json['mal_id'] ?? 0) as int,
+      title: (json['title'] ?? '') as String,
+      imageUrl: (json['images']?['jpg']?['image_url'] ??
+              (json['image_url'] ?? '')) as String,
+      score: (json['score'] is num) ? (json['score'] as num).toDouble() : 0.0,
+      synopsis: (json['synopsis'] ?? '') as String,
+      status: (json['status'] ?? '') as String,
+      trailerUrl: (json['trailer']?['url'] ?? '') as String,
     );
   }
 }
